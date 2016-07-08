@@ -2470,6 +2470,8 @@ static int read_thread(void *arg)
     opts = setup_find_stream_info_opts(ic, ffp->codec_opts);
     orig_nb_streams = ic->nb_streams;
 
+    ic->max_analyze_duration = 2000;
+    ic->probesize  = 2048;
     err = avformat_find_stream_info(ic, opts);
 
     for (i = 0; i < orig_nb_streams; i++)
@@ -2606,10 +2608,17 @@ static int read_thread(void *arg)
         ret = -1;
         goto fail;
     }
-    if (is->audio_stream >= 0) {
+    /*if (is->audio_stream >= 0) {
         is->audioq.is_buffer_indicator = 1;
         is->buffer_indicator_queue = &is->audioq;
     } else if (is->video_stream >= 0) {
+        is->videoq.is_buffer_indicator = 1;
+        is->buffer_indicator_queue = &is->videoq;
+    } else {
+        assert("invalid streams");
+    }*/
+    
+    if (is->video_stream >= 0) {
         is->videoq.is_buffer_indicator = 1;
         is->buffer_indicator_queue = &is->videoq;
     } else {
@@ -3928,8 +3937,11 @@ void ffp_check_buffering_l(FFPlayer *ffp)
         ffp->dcc.current_high_water_mark_in_ms = hwm_in_ms;
 
         if (is->buffer_indicator_queue && is->buffer_indicator_queue->nb_packets > 0) {
-            if (   (is->audioq.nb_packets > MIN_MIN_FRAMES || is->audio_stream < 0 || is->audioq.abort_request)
+            /*if (   (is->audioq.nb_packets > MIN_MIN_FRAMES || is->audio_stream < 0 || is->audioq.abort_request)
                 && (is->videoq.nb_packets > MIN_MIN_FRAMES || is->video_stream < 0 || is->videoq.abort_request)) {
+                ffp_toggle_buffering(ffp, 0);
+            }*/
+            if ((is->videoq.nb_packets > MIN_MIN_FRAMES || is->video_stream < 0 || is->videoq.abort_request)) {
                 ffp_toggle_buffering(ffp, 0);
             }
         }
