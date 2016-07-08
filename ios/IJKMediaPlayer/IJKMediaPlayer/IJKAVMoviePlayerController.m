@@ -1052,4 +1052,10 @@ static IJKAVMoviePlayerController* instance;
     NSLog(@"IJKAVMoviePlayerController:applicationWillTerminate: %d\n", (int)[UIApplication sharedApplication].applicationState);
 }
 
+#pragma mark - Statistics
+- (long)getRecvBytes
+{
+    return 0;
+}
+
 @end

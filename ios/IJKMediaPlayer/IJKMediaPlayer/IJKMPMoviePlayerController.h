@@ -27,5 +27,5 @@
 
 - (id)initWithContentURL:(NSURL *)aUrl;
 - (id)initWithContentURLString:(NSString *)aUrl;
-
+- (long)getRecvBytes;
 @end

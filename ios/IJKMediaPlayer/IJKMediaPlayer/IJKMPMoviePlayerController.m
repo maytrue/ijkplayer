@@ -237,4 +237,9 @@
     //mpPlayer还未找到方法实现
 }
 
+- (long)getRecvBytes
+{
+    return 0;
+}
+
 @end
