@@ -200,7 +200,8 @@ GLboolean IJK_GLES2_Renderer_isFormat(IJK_GLES2_Renderer *renderer, int format)
  */
 GLboolean IJK_GLES2_Renderer_setupGLES()
 {
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);       IJK_GLES2_checkError_TRACE("glClearColor");
+    //glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClearColor(0.4f, 0.4f, 0.4f, 1.0f);       IJK_GLES2_checkError_TRACE("glClearColor");
     glEnable(GL_CULL_FACE);                     IJK_GLES2_checkError_TRACE("glEnable(GL_CULL_FACE)");
     glCullFace(GL_BACK);                        IJK_GLES2_checkError_TRACE("glCullFace");
     glDisable(GL_DEPTH_TEST);
@@ -369,7 +370,7 @@ GLboolean IJK_GLES2_Renderer_renderOverlay(IJK_GLES2_Renderer *renderer, SDL_Vou
 {
     if (!renderer || !renderer->func_uploadTexture)
         return GL_FALSE;
-
+    glClearColor(0.4f, 0.4f, 0.4f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);               IJK_GLES2_checkError_TRACE("glClear");
 
     GLsizei visible_width  = renderer->frame_width;
