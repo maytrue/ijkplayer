@@ -2858,6 +2858,9 @@ static int read_thread(void *arg)
             ffp_statistic_l(ffp);
             continue;
         } else {
+            if (ffp) {
+                ffp->recv_bytes += pkt->size;
+            }
             is->eof = 0;
         }
 
@@ -3231,7 +3234,7 @@ FFPlayer *ffp_create()
     ffp_reset_internal(ffp);
     ffp->av_class = &ffp_context_class;
     ffp->meta = ijkmeta_create();
-
+    ffp->recv_bytes = 0;
     av_opt_set_defaults(ffp);
 
     return ffp;
