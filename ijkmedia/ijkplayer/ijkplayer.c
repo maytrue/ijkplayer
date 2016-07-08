@@ -766,3 +766,8 @@ int ijkmp_get_msg(IjkMediaPlayer *mp, AVMessage *msg, int block)
 
     return -1;
 }
+
+long ijkmp_get_recvbytes(IjkMediaPlayer *mp)
+{
+    return mp->ffplayer->recv_bytes;
+}
