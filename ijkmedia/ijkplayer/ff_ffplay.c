@@ -2129,7 +2129,7 @@ static int audio_open(FFPlayer *opaque, int64_t wanted_channel_layout, int wante
         next_sample_rate_idx--;
     wanted_spec.format = AUDIO_S16SYS;
     wanted_spec.silence = 0;
-    wanted_spec.samples = FFMAX(SDL_AUDIO_MIN_BUFFER_SIZE, 2 << av_log2(wanted_spec.freq / SDL_AUDIO_MAX_CALLBACKS_PER_SEC));
+    wanted_spec.samples = FFMAX(SDL_AUDIO_MIN_BUFFER_SIZE, 2 << av_log2(wanted_spec.freq / SDL_AoutGetAudioPerSecondCallBacks(ffp->aout)));
     wanted_spec.callback = sdl_audio_callback;
     wanted_spec.userdata = opaque;
     while (SDL_AoutOpenAudio(ffp->aout, &wanted_spec, &spec) < 0) {
@@ -2470,6 +2470,8 @@ static int read_thread(void *arg)
     opts = setup_find_stream_info_opts(ic, ffp->codec_opts);
     orig_nb_streams = ic->nb_streams;
 
+    ic->max_analyze_duration = 2000;
+    ic->probesize  = 2048;
     err = avformat_find_stream_info(ic, opts);
 
     for (i = 0; i < orig_nb_streams; i++)
@@ -2606,10 +2608,17 @@ static int read_thread(void *arg)
         ret = -1;
         goto fail;
     }
-    if (is->audio_stream >= 0) {
+    /*if (is->audio_stream >= 0) {
         is->audioq.is_buffer_indicator = 1;
         is->buffer_indicator_queue = &is->audioq;
     } else if (is->video_stream >= 0) {
+        is->videoq.is_buffer_indicator = 1;
+        is->buffer_indicator_queue = &is->videoq;
+    } else {
+        assert("invalid streams");
+    }*/
+    
+    if (is->video_stream >= 0) {
         is->videoq.is_buffer_indicator = 1;
         is->buffer_indicator_queue = &is->videoq;
     } else {
@@ -2858,6 +2867,9 @@ static int read_thread(void *arg)
             ffp_statistic_l(ffp);
             continue;
         } else {
+            if (ffp) {
+                ffp->recv_bytes += pkt->size;
+            }
             is->eof = 0;
         }
 
@@ -3231,7 +3243,7 @@ FFPlayer *ffp_create()
     ffp_reset_internal(ffp);
     ffp->av_class = &ffp_context_class;
     ffp->meta = ijkmeta_create();
-
+    ffp->recv_bytes = 0;
     av_opt_set_defaults(ffp);
 
     return ffp;
@@ -3925,8 +3937,11 @@ void ffp_check_buffering_l(FFPlayer *ffp)
         ffp->dcc.current_high_water_mark_in_ms = hwm_in_ms;
 
         if (is->buffer_indicator_queue && is->buffer_indicator_queue->nb_packets > 0) {
-            if (   (is->audioq.nb_packets > MIN_MIN_FRAMES || is->audio_stream < 0 || is->audioq.abort_request)
+            /*if (   (is->audioq.nb_packets > MIN_MIN_FRAMES || is->audio_stream < 0 || is->audioq.abort_request)
                 && (is->videoq.nb_packets > MIN_MIN_FRAMES || is->video_stream < 0 || is->videoq.abort_request)) {
+                ffp_toggle_buffering(ffp, 0);
+            }*/
+            if ((is->videoq.nb_packets > MIN_MIN_FRAMES || is->video_stream < 0 || is->videoq.abort_request)) {
                 ffp_toggle_buffering(ffp, 0);
             }
         }

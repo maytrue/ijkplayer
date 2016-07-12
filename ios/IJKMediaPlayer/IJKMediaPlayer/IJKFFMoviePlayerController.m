@@ -324,6 +324,13 @@ void IJKFFIOStatCompleteRegister(void (*cb)(const char *url,
     return ijkmp_is_playing(_mediaPlayer);
 }
 
+- (long)getRecvBytes
+{
+    if (!_mediaPlayer)
+        return NO;
+    return ijkmp_get_recvbytes(_mediaPlayer);
+}
+
 - (void)setPauseInBackground:(BOOL)pause
 {
     _pauseInBackground = pause;

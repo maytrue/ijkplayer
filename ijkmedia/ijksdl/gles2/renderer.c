@@ -200,7 +200,8 @@ GLboolean IJK_GLES2_Renderer_isFormat(IJK_GLES2_Renderer *renderer, int format)
  */
 GLboolean IJK_GLES2_Renderer_setupGLES()
 {
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);       IJK_GLES2_checkError_TRACE("glClearColor");
+    //glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClearColor(0.4f, 0.4f, 0.4f, 1.0f);       IJK_GLES2_checkError_TRACE("glClearColor");
     glEnable(GL_CULL_FACE);                     IJK_GLES2_checkError_TRACE("glEnable(GL_CULL_FACE)");
     glCullFace(GL_BACK);                        IJK_GLES2_checkError_TRACE("glCullFace");
     glDisable(GL_DEPTH_TEST);
@@ -248,15 +249,16 @@ static void IJK_GLES2_Renderer_Vertices_apply(IJK_GLES2_Renderer *renderer)
 
     float width     = renderer->frame_width;
     float height    = renderer->frame_height;
+
+    if (renderer->frame_sar_num > 0 && renderer->frame_sar_den > 0) {
+        width = width * renderer->frame_sar_num / renderer->frame_sar_den;
+    }
+
     const float dW  = (float)renderer->layer_width	/ width;
     const float dH  = (float)renderer->layer_height / height;
     float dd        = 1.0f;
     float nW        = 1.0f;
     float nH        = 1.0f;
-
-    if (renderer->frame_sar_num > 0 && renderer->frame_sar_den > 0) {
-        width = width * renderer->frame_sar_num / renderer->frame_sar_den;
-    }
 
     switch (renderer->gravity) {
         case IJK_GLES2_GRAVITY_RESIZE_ASPECT_FILL:  dd = FFMAX(dW, dH); break;
@@ -368,7 +370,7 @@ GLboolean IJK_GLES2_Renderer_renderOverlay(IJK_GLES2_Renderer *renderer, SDL_Vou
 {
     if (!renderer || !renderer->func_uploadTexture)
         return GL_FALSE;
-
+    glClearColor(0.4f, 0.4f, 0.4f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);               IJK_GLES2_checkError_TRACE("glClear");
 
     GLsizei visible_width  = renderer->frame_width;
