@@ -8,6 +8,6 @@ Pod::Spec.new do |s|
   s.homepage     = "https://github.com/maytrue/ijkplayer" 
   s.license      = "MIT (example)"
   s.author       = { "guowei" => "guowzou@gmail.com" }
-  s.source       = { :git => "https://github.com/maytrue/ijkplayer.git", :tag => "v1.0" }
+  s.source       = { :git => "https://github.com/maytrue/ijkplayer.git", :tag => "v1.2" }
   "vendored_frameworks": "framework/IJKMediaFramework.framework",
 end
