@@ -139,9 +139,15 @@
             NSLog(@"AudioQueue: AVAudioSession.setActive(YES) failed: %@\n", error ? [error localizedDescription] : @"nil");
         }
         
-        if (NO == [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryAmbient error:&error]) {
+        /*if (NO == [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryAmbient error:&error]) {
             
             NSLog(@"AudioQueue: AVAudioSession.setCategory(AVAudioSessionCategoryAmbient) failed: %@\n", error ? [error localizedDescription] : @"nil");
+        }*/
+        if (NO == [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayAndRecord
+                                                   withOptions:AVAudioSessionCategoryOptionMixWithOthers
+                                                         error:&error]) {
+            
+            NSLog(@"AudioQueue: AVAudioSession.setCategory(AVAudioSessionCategoryPlayback) failed: %@\n", error ? [error localizedDescription] : @"nil");
         }
 
         OSStatus status = AudioQueueStart(_audioQueueRef, NULL);
