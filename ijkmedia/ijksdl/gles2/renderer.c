@@ -413,7 +413,7 @@ GLboolean IJK_GLES2_Renderer_renderOverlay(IJK_GLES2_Renderer *renderer, SDL_Vou
         renderer->buffer_width  = buffer_width;
         renderer->visible_width = visible_width;
 
-        GLsizei padding_pixels     = buffer_width - visible_width;
+        GLsizei padding_pixels     = buffer_width - visible_width + 1;
         GLfloat padding_normalized = ((GLfloat)padding_pixels) / buffer_width;
 
         IJK_GLES2_Renderer_TexCoords_reset(renderer);
