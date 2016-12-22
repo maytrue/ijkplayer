@@ -9,7 +9,7 @@ Pod::Spec.new do |s|
                    Copyright 2016
                  LICENSE "
   s.author       = { "guowei" => "guowzou@gmail.com" }
-  s.source       = { :git => "https://github.com/maytrue/ijkplayer.git", :tag => "v1.6.3" }
+  s.source       = { :git => "https://github.com/maytrue/ijkplayer.git", :tag => "v1.6.3.2" }
   s.vendored_frameworks = "framework/IJKMediaFramework.framework"
 end
 
