@@ -34,6 +34,7 @@
 #import <CoreVideo/CVHostTime.h>
 #import <Foundation/Foundation.h>
 #import "IJKDeviceModel.h"
+#include <stdatomic.h>
 
 #define IJK_VTB_FCC_AVCC   SDL_FOURCC('C', 'c', 'v', 'a')
 
@@ -94,6 +95,10 @@ struct VideoToolBoxContext {
 
     SDL_SpeedSampler            sampler;
 };
+
+static volatile int _Atomic vtb_active = 0;
+static SDL_mutex *vtb_cond_mutex = NULL;
+static SDL_cond *vtb_cond = NULL;
 
 static void vtbformat_destroy(VTBFormatDesc *fmt_desc);
 static int  vtbformat_init(VTBFormatDesc *fmt_desc, AVCodecParameters *codecpar);
@@ -347,7 +352,12 @@ void VTDecoderCallback(void *decompressionOutputRefCon,
         }
 
         newFrame = (sort_queue *)mallocz(sizeof(sort_queue));
-        newFrame->pic.pkt_pts    = sample_info->pts;
+        if (!newFrame) {
+            ALOGE("VTB: create new frame fail: out of memory\n");
+            goto failed;
+        }
+
+        newFrame->pic.pts        = sample_info->pts;
         newFrame->pic.pkt_dts    = sample_info->dts;
         newFrame->pic.sample_aspect_ratio.num = sample_info->sar_num;
         newFrame->pic.sample_aspect_ratio.den = sample_info->sar_den;
@@ -355,8 +365,7 @@ void VTDecoderCallback(void *decompressionOutputRefCon,
         newFrame->nextframe  = NULL;
 
         if (newFrame->pic.pts != AV_NOPTS_VALUE) {
-            newFrame->sort    = newFrame->pic.pkt_pts;
-            newFrame->pic.pts = newFrame->pic.pkt_pts;
+            newFrame->sort    = newFrame->pic.pts;
         } else {
             newFrame->sort    = newFrame->pic.pkt_dts;
             newFrame->pic.pts = newFrame->pic.pkt_dts;
@@ -755,7 +764,8 @@ static int decode_video(VideoToolBoxContext* context, AVCodecContext *avctx, AVP
     if (context->ffp->vtb_handle_resolution_change &&
         context->codecpar->codec_id == AV_CODEC_ID_H264) {
         size_data = av_packet_get_side_data(avpkt, AV_PKT_DATA_NEW_EXTRADATA, &size_data_size);
-        if (size_data && size_data_size > AV_INPUT_BUFFER_PADDING_SIZE) {
+        // minimum avcC(sps,pps) = 7
+        if (size_data && size_data_size > 7) {
             int             got_picture = 0;
             AVFrame        *frame      = av_frame_alloc();
             AVDictionary   *codec_opts = NULL;
@@ -765,7 +775,7 @@ static int decode_video(VideoToolBoxContext* context, AVCodecContext *avctx, AVP
 
             avcodec_parameters_to_context(new_avctx, context->codecpar);
             av_freep(&new_avctx->extradata);
-            new_avctx->extradata = av_mallocz(size_data_size);
+            new_avctx->extradata = av_mallocz(size_data_size + AV_INPUT_BUFFER_PADDING_SIZE);
             if (!new_avctx->extradata)
                 return AVERROR(ENOMEM);
             memcpy(new_avctx->extradata, size_data, size_data_size);
@@ -783,9 +793,7 @@ static int decode_video(VideoToolBoxContext* context, AVCodecContext *avctx, AVP
             if (ret < 0) {
                 avcodec_free_context(&new_avctx);
                 return ret;
-            }
-
-            if (got_picture) {
+            } else {
                 if (context->codecpar->width  != new_avctx->width &&
                     context->codecpar->height != new_avctx->height) {
                     avcodec_parameters_from_context(context->codecpar, new_avctx);
@@ -930,6 +938,11 @@ void videotoolbox_free(VideoToolBoxContext* context)
     vtbformat_destroy(&context->fmt_desc);
 
     avcodec_parameters_free(&context->codecpar);
+    assert(vtb_cond && vtb_cond_mutex);
+    SDL_LockMutex(vtb_cond_mutex);
+    atomic_store(&vtb_active, 0);
+    SDL_CondSignal(vtb_cond);
+    SDL_UnlockMutex(vtb_cond_mutex);
 }
 
 int videotoolbox_decode_frame(VideoToolBoxContext* context)
@@ -1116,9 +1129,36 @@ fail:
 
 VideoToolBoxContext* videotoolbox_create(FFPlayer* ffp, AVCodecContext* avctx)
 {
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        vtb_active = 0;
+        atomic_store(&vtb_active, 0);
+        vtb_cond = SDL_CreateCond();
+        vtb_cond_mutex = SDL_CreateMutex();
+    });
+
     int ret = 0;
 
+    SDL_LockMutex(vtb_cond_mutex);
+    if (atomic_load(&vtb_active)) {
+        SDL_CondWaitTimeout(vtb_cond, vtb_cond_mutex, 1000 * 10);
+        ret = atomic_load(&vtb_active);
+    }
+    if (!ret) {
+        atomic_store(&vtb_active, 1);
+    }
+    SDL_UnlockMutex(vtb_cond_mutex);
+
+    if (ret) {
+        ALOGW("%s - videotoolbox can not exists twice at the same time", __FUNCTION__);
+        return NULL;
+    }
+
     VideoToolBoxContext *context_vtb = (VideoToolBoxContext *)mallocz(sizeof(VideoToolBoxContext));
+
+    context_vtb->sample_info_mutex = SDL_CreateMutex();
+    context_vtb->sample_info_cond  = SDL_CreateCond();
+
     if (!context_vtb) {
         goto fail;
     }
@@ -1138,6 +1178,7 @@ VideoToolBoxContext* videotoolbox_create(FFPlayer* ffp, AVCodecContext* avctx)
     if (ret)
         goto fail;
     assert(context_vtb->fmt_desc.fmt_desc);
+    vtbformat_destroy(&context_vtb->fmt_desc);
 
     context_vtb->vt_session = vtbsession_create(context_vtb);
     if (context_vtb->vt_session == NULL)
@@ -1145,9 +1186,6 @@ VideoToolBoxContext* videotoolbox_create(FFPlayer* ffp, AVCodecContext* avctx)
 
     context_vtb->m_sort_queue = 0;
     context_vtb->m_queue_depth = 0;
-
-    context_vtb->sample_info_mutex = SDL_CreateMutex();
-    context_vtb->sample_info_cond  = SDL_CreateCond();
 
     SDL_SpeedSamplerReset(&context_vtb->sampler);
     return context_vtb;
